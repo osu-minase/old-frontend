@@ -19,5 +19,5 @@ class Schiavo {
 // I don't remember. And don't wanna test to figure it out. So fuck it.
 function __schiavoCall($c, $message) {
 	global $schiavoConfig;
-	return false
+	return false;
 }
