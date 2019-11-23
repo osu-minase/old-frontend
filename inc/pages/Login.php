@@ -10,7 +10,7 @@ class Login {
 
 	public function P() {
 		clir(true, 'index.php?p=1&e=1');
-		echo '<br><div class="narrow-content"><h1><i class="fa fa-sign-in"></i>	Login</h1>';
+		echo '<br><div id="narrow-content"><h1><i class="fa fa-sign-in"></i>	Login</h1>';
 		if (!isset($_GET['e']) && !isset($_GET['s'])) {
 			echo '<p>Please enter your credentials.</p>';
 		}
@@ -75,8 +75,7 @@ class Login {
 			$_SESSION['userid'] = $us['id'];
 			$_SESSION['password'] = $us['password_md5'];
 			$_SESSION['passwordChanged'] = false;
-			$_SESSION['csrf'] = csrfToken();
-			
+			$_SESSION['2fa'] = is2FAEnabled($us["id"], true);
 			// Check if the user requested to be remembered. If they did, initialise cookies.
 			if (isset($_POST['remember']) && (bool) $_POST['remember']) {
 				$m = new RememberCookieHandler();
@@ -84,7 +83,7 @@ class Login {
 			}
 			// update ip logs only if we don't have 2FA enabled or this ip is allowed
 			// if 2FA is enabled, logIP will be run when this IP has been allowed
-			if (get2FAType($us['id']) != 2)
+			if (!check2FA($us['id']) && get2FAType($us['id']) != 2)
 				logIP($us['id']);
 			// Get safe title
 			updateSafeTitle();

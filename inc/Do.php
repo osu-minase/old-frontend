@@ -83,7 +83,7 @@ class D {
 				}
 				$multiUsername = $multiUserInfo["username"];
 				$multiUserID = $multiUserInfo["userid"];
-				@Schiavo::CM("User **$_POST[u]** registered from same $criteria as **$multiUsername** (https://ripple.moe/?u=$multiUserID). **POSSIBLE MULTIACCOUNT!!!**. Waiting for ingame verification...");
+				Schiavo::CM("User **$_POST[u]** registered from same $criteria as **$multiUsername** (https://ripple.moe/?u=$multiUserID). **POSSIBLE MULTIACCOUNT!!!**. Waiting for ingame verification...");
 			}
 			// Create password
 			$md5Password = password_hash(md5($_POST['p1']), PASSWORD_DEFAULT);
@@ -100,7 +100,7 @@ class D {
 			foreach (['std', 'taiko', 'ctb', 'mania'] as $m) {
 				Leaderboard::Update($uid, 0, $m);
 			}
-			@Schiavo::CM("User (**$_POST[u]** | $_POST[e]) registered (successfully) from **" . $ip . "**");
+			Schiavo::CM("User (**$_POST[u]** | $_POST[e]) registered (successfully) from **" . $ip . "**");
 			// Generate and set identity token ("y" cookie)
 			setYCookie($uid);
 			// log user ip
@@ -214,20 +214,11 @@ class D {
 				$ha = '';
 			}
 			// Save new values
-			$GLOBALS['db']->execute("UPDATE system_settings SET value_int = ? WHERE name = 'website_maintenance' LIMIT 1", [$wm]);
-			$GLOBALS['db']->execute("UPDATE system_settings SET value_int = ? WHERE name = 'game_maintenance' LIMIT 1", [$gm]);
-			$GLOBALS['db']->execute("UPDATE system_settings SET value_int = ? WHERE name = 'registrations_enabled' LIMIT 1", [$r]);
-			$GLOBALS['db']->execute("UPDATE system_settings SET value_string = ? WHERE name = 'website_global_alert' LIMIT 1", [$ga]);
-			$GLOBALS['db']->execute("UPDATE system_settings SET value_string = ? WHERE name = 'website_home_alert' LIMIT 1", [$ha]);
-			foreach (["std" , "taiko", "ctb", "mania"] as $key) {
-				if (!isset($_POST["aql_$key"]) || !is_numeric($_POST["aql_$key"])) {
-					continue;
-				}
-				$GLOBALS['db']->execute("UPDATE system_settings SET value_string = ? WHERE name = 'aql_threshold_" . $key . "' LIMIT 1", [$_POST["aql_$key"]]);
-			}
-			redisConnect();
-			$GLOBALS["redis"]->publish("lets:reload_aql", "reload");
-			
+			$GLOBALS['db']->execute("UPDATE system_settings SET value_int = ? WHERE name = 'website_maintenance'", [$wm]);
+			$GLOBALS['db']->execute("UPDATE system_settings SET value_int = ? WHERE name = 'game_maintenance'", [$gm]);
+			$GLOBALS['db']->execute("UPDATE system_settings SET value_int = ? WHERE name = 'registrations_enabled'", [$r]);
+			$GLOBALS['db']->execute("UPDATE system_settings SET value_string = ? WHERE name = 'website_global_alert'", [$ga]);
+			$GLOBALS['db']->execute("UPDATE system_settings SET value_string = ? WHERE name = 'website_home_alert'", [$ha]);
 			// RAP log
 			rapLog("has updated system settings");
 			// Done, redirect to success page
@@ -261,6 +252,11 @@ class D {
 			} else {
 				$rm = 0;
 			}
+			if (!empty($_POST['mi'])) {
+				$mi = $_POST['mi'];
+			} else {
+				$mi = '';
+			}
 			if (!empty($_POST['lm'])) {
 				$lm = $_POST['lm'];
 			} else {
@@ -285,6 +281,7 @@ class D {
 			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_int = ? WHERE name = 'bancho_maintenance' LIMIT 1", [$bm]);
 			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_int = ? WHERE name = 'free_direct' LIMIT 1", [$od]);
 			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_int = ? WHERE name = 'restricted_joke' LIMIT 1", [$rm]);
+			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_string = ? WHERE name = 'menu_icon' LIMIT 1", [$mi]);
 			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_string = ? WHERE name = 'login_messages' LIMIT 1", [$lm]);
 			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_string = ? WHERE name = 'login_notification' LIMIT 1", [$ln]);
 			$GLOBALS['db']->execute("UPDATE bancho_settings SET value_string = ? WHERE name = 'osu_versions' LIMIT 1", [$cv]);
@@ -328,7 +325,7 @@ class D {
 				throw new Exception('Nice troll');
 			}
 			// Check if this user exists and get old data
-			$oldData = $GLOBALS["db"]->fetch("SELECT * FROM users LEFT JOIN users_stats ON users.id = users_stats.id WHERE users.id = ? LIMIT 1", [$_POST["id"]]);
+			$oldData = $GLOBALS["db"]->fetch("SELECT * FROM users LEFT JOIN users_stats ON users.username = ? WHERE users.id = ?", [$_POST["u"], $_POST["id"]]);
 			if (!$oldData) {
 				throw new Exception("That user doesn\'t exist");
 			}
@@ -347,18 +344,18 @@ class D {
 			//$oldse = current($GLOBALS["db"]->fetch("SELECT silence_end FROM users WHERE username = ?", array($_POST["u"])));
 
 			// Save new data (email, and cm notes)
-			$GLOBALS['db']->execute('UPDATE users SET email = ?, notes = ? WHERE id = ? LIMIT 1', [$_POST['e'], $_POST['ncm'], $_POST['id'] ]);
+			$GLOBALS['db']->execute('UPDATE users SET email = ?, notes = ? WHERE id = ?', [$_POST['e'], $_POST['ncm'], $_POST['id'] ]);
 			// Edit silence time if we can silence users
 			if (hasPrivilege(Privileges::AdminSilenceUsers)) {
-				$GLOBALS['db']->execute('UPDATE users SET silence_end = ?, silence_reason = ? WHERE id = ? LIMIT 1', [$_POST['se'], $_POST['sr'], $_POST['id'] ]);
+				$GLOBALS['db']->execute('UPDATE users SET silence_end = ?, silence_reason = ? WHERE id = ?', [$_POST['se'], $_POST['sr'], $_POST['id'] ]);
 			}
 			// Edit privileges if we can
 			if (hasPrivilege(Privileges::AdminManagePrivileges) && ($_POST["id"] != $_SESSION["userid"])) {
-				$GLOBALS['db']->execute('UPDATE users SET privileges = ? WHERE id = ? LIMIT 1', [$_POST['priv'], $_POST['id']]);
+				$GLOBALS['db']->execute('UPDATE users SET privileges = ? WHERE id = ?', [$_POST['priv'], $_POST['id']]);
 				updateBanBancho($_POST["id"]);
 			}
 			// Save new userpage
-			$GLOBALS['db']->execute('UPDATE users_stats SET userpage_content = ? WHERE id = ? LIMIT 1', [$_POST['up'], $_POST['id']]);
+			$GLOBALS['db']->execute('UPDATE users_stats SET userpage_content = ? WHERE id = ?', [$_POST['up'], $_POST['id']]);
 			/* Save new data if set (rank, allowed, UP and silence)
 			if (isset($_POST['r']) && !empty($_POST['r']) && $oldData["rank"] != $_POST["r"]) {
 				$GLOBALS['db']->execute('UPDATE users SET rank = ? WHERE id = ?', [$_POST['r'], $_POST['id']]);
@@ -382,11 +379,11 @@ class D {
 			}
 			// Update country flag if set
 			if (isset($_POST['country']) && countryCodeToReadable($_POST['country']) != 'unknown country' && $oldData["country"] != $_POST['country']) {
-				$GLOBALS['db']->execute('UPDATE users_stats SET country = ? WHERE id = ? LIMIT 1', [$_POST['country'], $_POST['id']]);
+				$GLOBALS['db']->execute('UPDATE users_stats SET country = ? WHERE id = ?', [$_POST['country'], $_POST['id']]);
 				rapLog(sprintf("has changed %s's flag to %s", $_POST["u"], $_POST['country']));
 			}
 			// Set username style/color/aka
-			$GLOBALS['db']->execute('UPDATE users_stats SET user_color = ?, user_style = ?, username_aka = ? WHERE id = ? LIMIT 1', [$c, $bg, $_POST['aka'], $_POST['id']]);
+			$GLOBALS['db']->execute('UPDATE users_stats SET user_color = ?, user_style = ?, username_aka = ? WHERE id = ?', [$c, $bg, $_POST['aka'], $_POST['id']]);
 			// RAP log
 			rapLog(sprintf("has edited user %s", $_POST["u"]));
 			// Done, redirect to success page
@@ -409,7 +406,7 @@ class D {
 				throw new Exception('Nice troll.');
 			}
 			// Get user's username
-			$userData = $GLOBALS['db']->fetch('SELECT username, privileges FROM users WHERE id = ? LIMIT 1', $_GET['id']);
+			$userData = $GLOBALS['db']->fetch('SELECT username, privileges FROM users WHERE id = ?', $_GET['id']);
 			if (!$userData) {
 				throw new Exception("User doesn't exist");
 			}
@@ -456,7 +453,7 @@ class D {
 				throw new Exception('Nice troll.');
 			}
 			// Get user id
-			$id = current($GLOBALS['db']->fetch(sprintf('SELECT id FROM users WHERE %s = ? LIMIT 1', $email ? 'email' : 'username'), [$_POST['u']]));
+			$id = current($GLOBALS['db']->fetch(sprintf('SELECT id FROM users WHERE %s = ?', $email ? 'email' : 'username'), [$_POST['u']]));
 			// Check if that user exists
 			if (!$id) {
 				throw new Exception("That user doesn't exist");
@@ -481,7 +478,7 @@ class D {
 				throw new Exception('Nice troll.');
 			}
 			// Get user id
-			$id = current($GLOBALS['db']->fetch('SELECT id FROM users WHERE username = ? LIMIT 1', $_POST['u']));
+			$id = current($GLOBALS['db']->fetch('SELECT id FROM users WHERE username = ?', $_POST['u']));
 			// Check if that user exists
 			if (!$id) {
 				throw new Exception("That user doesn't exist");
@@ -506,7 +503,7 @@ class D {
 				throw new Exception('Nice troll.');
 			}
 			// Check if we can edit this user
-			$privileges = $GLOBALS["db"]->fetch("SELECT privileges FROM users WHERE id = ? LIMIT 1", [$_POST["id"]]);
+			$privileges = $GLOBALS["db"]->fetch("SELECT privileges FROM users WHERE id = ?", [$_POST["id"]]);
 			if (!$privileges) {
 				throw new Exception("User doesn't exist");
 			}
@@ -540,6 +537,33 @@ class D {
 	}
 
 	/*
+	 * SaveDocFile
+	 * Save doc file function (ADMIN CP)
+	*/
+	public static function SaveDocFile() {
+		try {
+			// Check if everything is set
+			if (!isset($_POST['id']) || !isset($_POST['t']) || !isset($_POST['c']) || !isset($_POST['p']) || empty($_POST['t']) || empty($_POST['c'])) {
+				throw new Exception('Nice troll.');
+			}
+			// Check if we are creating or editing a doc page
+			if ($_POST['id'] == 0) {
+				$GLOBALS['db']->execute('INSERT INTO docs (id, doc_name, doc_contents, public, is_rule) VALUES (NULL, ?, ?, ?, "0")', [$_POST['t'], $_POST['c'], $_POST['p']]);
+			} else {
+				$GLOBALS['db']->execute('UPDATE docs SET doc_name = ?, doc_contents = ?, public = ? WHERE id = ?', [$_POST['t'], $_POST['c'], $_POST['p'], $_POST['id']]);
+			}
+			// RAP log
+			rapLog(sprintf("has %s documentation page \"%s\"", $_POST['id'] == 0 ? "created" : "edited", $_POST["t"]));
+			// Done, redirect to success page
+			redirect('index.php?p=106&s=Documentation page edited!');
+		}
+		catch(Exception $e) {
+			// Redirect to Exception page
+			redirect('index.php?p=106&e='.$e->getMessage());
+		}
+	}
+
+	/*
 	 * SaveBadge
 	 * Save badge function (ADMIN CP)
 	*/
@@ -553,7 +577,7 @@ class D {
 			if ($_POST['id'] == 0) {
 				$GLOBALS['db']->execute('INSERT INTO badges (id, name, icon) VALUES (NULL, ?, ?)', [$_POST['n'], $_POST['i']]);
 			} else {
-				$GLOBALS['db']->execute('UPDATE badges SET name = ?, icon = ? WHERE id = ? LIMIT 1', [$_POST['n'], $_POST['i'], $_POST['id']]);
+				$GLOBALS['db']->execute('UPDATE badges SET name = ?, icon = ? WHERE id = ?', [$_POST['n'], $_POST['i'], $_POST['id']]);
 			}
 			// RAP log
 			rapLog(sprintf("has %s badge %s", $_POST['id'] == 0 ? "created" : "edited", $_POST["n"]));
@@ -601,6 +625,34 @@ class D {
 	}
 
 	/*
+	 * RemoveDocFile
+	 * Delete doc file function (ADMIN CP)
+	*/
+	public static function RemoveDocFile() {
+		try {
+			// Check if everything is set
+			if (!isset($_GET['id']) || empty($_GET['id'])) {
+				throw new Exception('Nice troll.');
+			}
+			// Check if this doc page exists
+			$name = $GLOBALS['db']->fetch('SELECT doc_name FROM docs WHERE id = ?', $_GET['id']);
+			if (!$name) {
+				throw new Exception("That documentation page doesn't exists");
+			}
+			// Delete doc page
+			$GLOBALS['db']->execute('DELETE FROM docs WHERE id = ?', $_GET['id']);
+			// RAP log
+			rapLog(sprintf("has deleted documentation page \"%s\"", current($name)));
+			// Done, redirect to success page
+			redirect('index.php?p=106&s=Documentation page deleted!');
+		}
+		catch(Exception $e) {
+			// Redirect to Exception page
+			redirect('index.php?p=106&e='.$e->getMessage());
+		}
+	}
+
+	/*
 	 * RemoveBadge
 	 * Remove badge function (ADMIN CP)
 	*/
@@ -611,13 +663,13 @@ class D {
 				throw new Exception("You can't delete this badge.");
 			}
 			// Make sure that this badge exists
-			$name = $GLOBALS['db']->fetch('SELECT name FROM badges WHERE id = ? LIMIT 1', $_GET['id']);
+			$name = $GLOBALS['db']->fetch('SELECT name FROM badges WHERE id = ?', $_GET['id']);
 			// Badge doesn't exists wtf
 			if (!$name) {
 				throw new Exception("This badge doesn't exists");
 			}
 			// Delete badge
-			$GLOBALS['db']->execute('DELETE FROM badges WHERE id = ? LIMIT 1', $_GET['id']);
+			$GLOBALS['db']->execute('DELETE FROM badges WHERE id = ?', $_GET['id']);
 			// delete badge from relationships table
 			$GLOBALS['db']->execute('DELETE FROM user_badges WHERE badge = ?', $_GET['id']);
 			// RAP log
@@ -691,7 +743,7 @@ class D {
 				throw new Exception('Invalid request');
 			}
 			// Get user id
-			$id = current($GLOBALS['db']->fetch('SELECT id FROM users WHERE username = ? LIMIT 1', $_POST['u']));
+			$id = current($GLOBALS['db']->fetch('SELECT id FROM users WHERE username = ?', $_POST['u']));
 			// Check if that user exists
 			if (!$id) {
 				throw new Exception("That user doesn't exist");
@@ -821,7 +873,7 @@ class D {
 
 				$oldCustomBadge = $GLOBALS["db"]->fetch("SELECT custom_badge_name AS name, custom_badge_icon AS icon FROM users_stats WHERE id = ? LIMIT 1", [$_SESSION["userid"]]);
 				if ($oldCustomBadge["name"] != $_POST["badgeName"] || $oldCustomBadge["icon"] != $_POST["badgeIcon"]) {
-					@Schiavo::CM("User **$_SESSION[username]** has changed his custom badge to **$_POST[badgeName]** *($_POST[badgeIcon])*");
+					Schiavo::CM("User **$_SESSION[username]** has changed his custom badge to **$_POST[badgeName]** *($_POST[badgeIcon])*");
 				}
 
 				// Script kiddie check 2
@@ -938,7 +990,7 @@ class D {
 			if (!isset($_POST['id']) || empty($_POST['id'])) {
 				throw new Exception('Invalid request');
 			}
-			$userData = $GLOBALS["db"]->fetch("SELECT username, privileges FROM users WHERE id = ? LIMIT 1", [$_POST["id"]]);
+			$userData = $GLOBALS["db"]->fetch("SELECT username, privileges FROM users WHERE id = ?", [$_POST["id"]]);
 			if (!$userData) {
 				throw new Exception('User doesn\'t exist.');
 			}
@@ -966,15 +1018,13 @@ class D {
 
 			// Delete scores
 			if ($_POST["gm"] == -1) {
-				$GLOBALS['db']->execute('INSERT INTO scores_removed SELECT * FROM scores WHERE userid = ?', [$_POST['id']]);
 				$GLOBALS['db']->execute('DELETE FROM scores WHERE userid = ?', [$_POST['id']]);
 			} else {
-				$GLOBALS['db']->execute('INSERT INTO scores_removed SELECT * FROM scores WHERE userid = ? AND play_mode = ?', [$_POST['id'], $_POST["gm"]]);
 				$GLOBALS['db']->execute('DELETE FROM scores WHERE userid = ? AND play_mode = ?', [$_POST['id'], $_POST["gm"]]);
 			}
 			// Reset mode stats
 			foreach ($modes as $k) {
-				$GLOBALS['db']->execute('UPDATE users_stats SET ranked_score_'.$k.' = 0, total_score_'.$k.' = 0, replays_watched_'.$k.' = 0, playcount_'.$k.' = 0, avg_accuracy_'.$k.' = 0.0, total_hits_'.$k.' = 0, level_'.$k.' = 0, pp_'.$k.' = 0 WHERE id = ? LIMIT 1', [$_POST['id']]);
+				$GLOBALS['db']->execute('UPDATE users_stats SET ranked_score_'.$k.' = 0, total_score_'.$k.' = 0, replays_watched_'.$k.' = 0, playcount_'.$k.' = 0, avg_accuracy_'.$k.' = 0.0, total_hits_'.$k.' = 0, level_'.$k.' = 0, pp_'.$k.' = 0 WHERE id = ?', [$_POST['id']]);
 			}
 
 			// RAP log
@@ -1015,7 +1065,68 @@ class D {
 			redirect('index.php?p=99&e='.$e->getMessage());
 		}
 	}
-	
+
+	/*
+	 * SetRulesPage
+	 * Set the new rules page
+	 */
+	public static function SetRulesPage() {
+		try {
+			if (!isset($_GET['id']))
+				throw new Exception('no');
+			$GLOBALS['db']->execute('UPDATE docs SET is_rule = "0"');
+			$GLOBALS['db']->execute('UPDATE docs SET is_rule = "1" WHERE id = ?', [$_GET['id']]);
+			// RAP log
+			$name = $GLOBALS["db"]->fetch("SELECT doc_name FROM docs WHERE id = ?", [$_GET["id"]]);
+			rapLog(sprintf("has set \"%s\" as rules page", current($name)));
+			redirect('index.php?p=106&s='.$_GET['id'].' is now the new rules page!');
+		}
+		catch (Exception $e) {
+			redirect('index.php?p=106&e='.$e->getMessage());
+		}
+	}
+
+	/*
+	 * Resend2FACode
+	 * Generete and send a new 2FA code for logged user
+	*/
+	public static function Resend2FACode() {
+		try {
+			// Check if we are logged in
+			sessionCheck();
+			// Delete old 2FA token and generate a new one
+			$GLOBALS["db"]->execute("DELETE FROM 2fa WHERE userid = ? AND ip = ?", [$_SESSION["userid"], getIP()]);
+			check2FA($_SESSION["userid"]);
+			// Redirect
+			addSuccess("A new 2FA code has been generated and sent to you through telegram!");
+			redirect("index.php?p=29");
+		}
+		catch(Exception $e) {
+			redirect('index.php?p=99&e='.$e->getMessage());
+		}
+	}
+
+	/*
+	 * Disable2FA
+	 * Disable 2FA for current user
+	*/
+	public static function Disable2FA() {
+		try {
+			// Check if we are logged in
+			sessionCheck();
+			// Disable 2fa
+			$GLOBALS["db"]->execute("DELETE FROM 2fa_telegram WHERE userid = ?", [$_SESSION["userid"]]);
+			// Update session
+			if (isset($_SESSION["2fa"]))
+				$_SESSION["2fa"] = is2FAEnabled($_SESSION["userid"], true);
+			// Redirect
+			redirect("index.php?p=30");
+		}
+		catch(Exception $e) {
+			redirect('index.php?p=99&e='.$e->getMessage());
+		}
+	}
+
 	/*
 	 * ProcessRankRequest
 	 * Rank/unrank a beatmap
@@ -1028,7 +1139,7 @@ class D {
 				throw new Exception("no");
 
 			// Get beatmapset id
-			$requestData = $GLOBALS["db"]->fetch("SELECT * FROM rank_requests WHERE id = ? LIMIT 1", [$_GET["id"]]);
+			$requestData = $GLOBALS["db"]->fetch("SELECT * FROM rank_requests WHERE id = ?", [$_GET["id"]]);
 			if (!$requestData)
 				throw new Exception("Rank request not found");
 
@@ -1037,7 +1148,7 @@ class D {
 				$bsid = $requestData["bid"];
 			} else {
 				// We have the beatmap but we don't have the beatmap set id.
-				$result = $GLOBALS["db"]->fetch("SELECT beatmapset_id FROM beatmaps WHERE beatmap_id = ? LIMIT 1", [$requestData["bid"]]);
+				$result = $GLOBALS["db"]->fetch("SELECT beatmapset_id FROM beatmaps WHERE beatmap_id = ?", [$requestData["bid"]]);
 				if (!$result)
 					throw new Exception("Beatmap set id not found. Load the beatmap ingame and try again.");
 				$bsid = current($result);
@@ -1055,7 +1166,7 @@ class D {
 				// send a message to #announce
 				$bm = $GLOBALS["db"]->fetch("SELECT beatmapset_id, song_name FROM beatmaps WHERE beatmapset_id = ? LIMIT 1", [$bsid]);
 
-				$msg = "[https://osu.ppy.sh/s/" . $bsid . " " . $bm["song_name"] . "] is now ranked!";
+				$msg = "[https://storage.ripple.moe/d/" . $bsid . " " . $bm["song_name"] . "] is now ranked!";
 				$to = "#announce";
 				$requesturl = $URL["bancho"] . "/api/v1/fokabotMessage?k=" . urlencode($ScoresConfig["api_key"]) . "&to=" . urlencode($to) . "&msg=" . urlencode($msg);
 				$resp = getJsonCurl($requesturl);
@@ -1085,8 +1196,8 @@ class D {
 		try {
 			if (!isset($_GET["id"]) || empty($_GET["id"]))
 				throw new Exception("no");
-			$GLOBALS["db"]->execute("UPDATE rank_requests SET blacklisted = IF(blacklisted=1, 0, 1) WHERE id = ? LIMIT 1", [$_GET["id"]]);
-			$reqData = $GLOBALS["db"]->fetch("SELECT type, bid FROM rank_requests WHERE id = ? LIMIT 1", [$_GET["id"]]);
+			$GLOBALS["db"]->execute("UPDATE rank_requests SET blacklisted = IF(blacklisted=1, 0, 1) WHERE id = ?", [$_GET["id"]]);
+			$reqData = $GLOBALS["db"]->fetch("SELECT type, bid FROM rank_requests WHERE id = ?", [$_GET["id"]]);
 			rapLog(sprintf("has toggled blacklist flag on beatmap %s %s", $reqData["type"] == "s" ? "set" : "", $reqData["bid"]), $_SESSION["userid"]);
 			redirect("index.php?p=117&s=Blacklisted flag changed");
 		}
@@ -1113,21 +1224,20 @@ class D {
 				$GLOBALS["db"]->execute("INSERT INTO privileges_groups (id, name, privileges, color) VALUES (NULL, ?, ?, ?)", [$_POST["n"], $_POST["priv"], $_POST["c"]]);
 			} else {
 				// Get old privileges and make sure group exists
-				$oldPriv = $GLOBALS["db"]->fetch("SELECT privileges FROM privileges_groups WHERE id = ? LIMIT 1", [$_POST["id"]]);
+				$oldPriv = $GLOBALS["db"]->fetch("SELECT privileges FROM privileges_groups WHERE id = ?", [$_POST["id"]]);
 				if (!$oldPriv) {
 					throw new Exception("That privilege group doesn't exist");
 				}
 				$oldPriv = current($oldPriv);
 				// Update existing group
-				$GLOBALS["db"]->execute("UPDATE privileges_groups SET name = ?, privileges = ?, color = ? WHERE id = ? LIMIT 1", [$_POST["n"], $_POST["priv"], $_POST["c"], $_POST["id"]]);
+				$GLOBALS["db"]->execute("UPDATE privileges_groups SET name = ?, privileges = ?, color = ? WHERE id = ?", [$_POST["n"], $_POST["priv"], $_POST["c"], $_POST["id"]]);
 				// Get users in this group
-				// I genuinely want to kill myself right now.
 				$users = $GLOBALS["db"]->fetchAll("SELECT id FROM users WHERE privileges = ".$oldPriv." OR privileges = ".$oldPriv." | ".Privileges::UserDonor);
 				foreach ($users as $user) {
 					// Remove privileges from previous group
-					$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges & ~".$oldPriv." WHERE id = ? LIMIT 1", [$user["id"]]);
+					$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges & ~".$oldPriv." WHERE id = ?", [$user["id"]]);
 					// Add privileges from new group
-					$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges | ".$_POST["priv"]." WHERE id = ? LIMIT 1", [$user["id"]]);
+					$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges | ".$_POST["priv"]." WHERE id = ?", [$user["id"]]);
 				}
 			}
 
@@ -1151,7 +1261,7 @@ class D {
 				throw new Exception('Nice troll.');
 			}
 			// Get user's username
-			$userData = $GLOBALS['db']->fetch('SELECT username, privileges FROM users WHERE id = ? LIMIT 1', $_GET['id']);
+			$userData = $GLOBALS['db']->fetch('SELECT username, privileges FROM users WHERE id = ?', $_GET['id']);
 			if (!$userData) {
 				throw new Exception("User doesn't exist");
 			}
@@ -1173,7 +1283,7 @@ class D {
 				$newPrivileges |= Privileges::UserPublic;
 			}
 			// Change privileges
-			$GLOBALS['db']->execute('UPDATE users SET privileges = ?, ban_datetime = ? WHERE id = ? LIMIT 1', [$newPrivileges, $banDateTime, $_GET['id']]);
+			$GLOBALS['db']->execute('UPDATE users SET privileges = ?, ban_datetime = ? WHERE id = ?', [$newPrivileges, $banDateTime, $_GET['id']]);
 			updateBanBancho($_GET["id"]);
 			// Rap log
 			rapLog(sprintf("has %s user %s", ($newPrivileges & Privileges::UserPublic) > 0 ? "removed restrictions on" : "restricted", $userData["username"]));
@@ -1198,8 +1308,52 @@ class D {
 		try {
 			if (!isset($_POST["id"]) || empty($_POST["id"]) || !isset($_POST["m"]) || empty($_POST["m"]))
 				throw new Exception("Invalid user");
-			$months = giveDonor($_POST["id"], $_POST["m"], $_POST["type"] == 0);
+			$userData = $GLOBALS["db"]->fetch("SELECT username, email, donor_expire FROM users WHERE id = ?", [$_POST["id"]]);
+			if (!$userData) {
+				throw new Exception("That user doesn't exist");
+			}
+			$isDonor = hasPrivilege(Privileges::UserDonor, $_POST["id"]);
+			$username = $userData["username"];
+			if (!$isDonor || $_POST["type"] == 1) {
+				$start = time();
+			} else {
+				$start = $userData["donor_expire"];
+				if ($start < time()) {
+					$start = time();
+				}
+			}
+			$unixPeriod = $start+((30*86400)*$_POST["m"]);
+			$months = round(($unixPeriod-time())/(30*86400));
+			$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges | ".Privileges::UserDonor.", donor_expire = ? WHERE id = ?", [$unixPeriod, $_POST["id"]]);
+
+			// We do the log thing here because the badge part _might_ fail
 			rapLog(sprintf("has given donor for %s months to user %s", $_POST["m"], $username), $_SESSION["userid"]);
+
+			$hasAlready = $GLOBALS["db"]->fetch("SELECT id FROM user_badges WHERE user = ? AND badge = 14 LIMIT 1", [$_POST["id"]]);
+			if (!$hasAlready) {
+				// 14 = donor badge
+				$GLOBALS["db"]->execute("INSERT INTO user_badges(user, badge) VALUES (?, ?);", [$_POST["id"], 14]);
+			}
+			// Send email
+			// Feelin' peppy-y
+			if ($_POST["m"] >= 20) $TheMoreYouKnow = "Did you know that your donation accounts for roughly one month of keeping the main server up? That's crazy! Thank you so much!";
+			else if ($_POST["m"] >= 15 && $_POST["m"] < 20) $TheMoreYouKnow = "Normally we would say how much of our expenses a certain donation pays for, but your donation is halfway through paying the domain for 1 year and paying the main server for 1 month. So we don't really know what to say here: your donation pays for about 75% of keeping the server up one month... ? I guess? Thank you anyway!";
+			else if ($_POST["m"] >= 10 && $_POST["m"] < 15) $TheMoreYouKnow = "You know what we could do with the amount you donated? We could probably renew the domain for one more year! Although your money is more likely to end up being spent on paying the main server. Thanks anyway!";
+			else if ($_POST["m"] >= 4 && $_POST["m"] < 10) $TheMoreYouKnow = "Your donation will help to keep the beatmap mirror we set up for Ripple up for one month! Thanks a lot!";
+			else if ($_POST["m"] >= 1 && $_POST["m"] < 4) $TheMoreYouKnow =  "With your donation, we can afford to keep up the error logging server, which is a little VPS on which we host an error logging service (Sentry). Thanks a lot!";
+
+			global $MailgunConfig;
+			$mailer = new SimpleMailgun($MailgunConfig);
+			$mailer->Send(
+				'Ripple <noreply@'.$MailgunConfig['domain'].'>', $userData['email'],
+				'Thank you for donating!',
+				sprintf(
+					"Hey %s! Thanks for donating to Ripple. It's thanks to the support of people like you that we can afford keeping the service up. Your donation has been processed, and you should now be able to get the donator role on discord, and have access to all the other perks listed on the \"Support us\" page.<br><br>%s<br><br>Your donor expires in %s months. Until then, have fun!<br>The Ripple Team",
+					$username,
+					$TheMoreYouKnow,
+					$months
+				)
+			);
 			redirect("index.php?p=102&s=Donor status changed. Donor for that user now expires in ".$months." months!");
 		}
 		catch(Exception $e) {
@@ -1216,7 +1370,7 @@ class D {
 				throw new Exception("That user doesn't exist");
 			}
 			$username = current($username);
-			$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges & ~".Privileges::UserDonor.", donor_expire = 0 WHERE id = ? LIMIT 1", [$_GET["id"]]);
+			$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges & ~".Privileges::UserDonor.", donor_expire = 0 WHERE id = ?", [$_GET["id"]]);
 
 			// Remove donor badge
 			// 14 = donor badge id
@@ -1257,7 +1411,6 @@ class D {
 				$rollbackString .= "s";
 			}
 
-			$GLOBALS["db"]->execute("INSERT INTO scores_removed SELECT * FROM scores WHERE userid = ? AND time >= ?", [$_POST["id"], $removeAfter]);
 			$GLOBALS["db"]->execute("DELETE FROM scores WHERE userid = ? AND time >= ?", [$_POST["id"], $removeAfter]);
 
 			rapLog(sprintf("has rolled back %s %s's account", $rollbackString, $username), $_SESSION["userid"]);
@@ -1352,10 +1505,7 @@ class D {
 					// Rank beatmap
 					case "rank":
 						$GLOBALS["db"]->execute("UPDATE beatmaps SET ranked = 2, ranked_status_freezed = 1 WHERE beatmap_id = ? LIMIT 1", [$beatmapID]);
-
-						// Restore old scores
-						$GLOBALS["db"]->execute("UPDATE scores s JOIN (SELECT userid, MAX(score) maxscore FROM scores JOIN beatmaps ON scores.beatmap_md5 = beatmaps.beatmap_md5 WHERE beatmaps.beatmap_md5 = (SELECT beatmap_md5 FROM beatmaps WHERE beatmap_id = ? LIMIT 1) GROUP BY userid) s2 ON s.score = s2.maxscore AND s.userid = s2.userid SET completed = 3", [$beatmapID]);
-						$result .= "$beatmapID has been ranked and its scores have been restored. | ";
+						$result .= "$beatmapID has been ranked. | ";
 					break;
 
 					// Force osu!api update (unfreeze)
@@ -1394,7 +1544,7 @@ class D {
 
 			// Send a message to #announce
 			$bm = $GLOBALS["db"]->fetch("SELECT beatmapset_id, song_name FROM beatmaps WHERE beatmapset_id = ? LIMIT 1", [$bsid]);
-			$msg = "[https://osu.ppy.sh/s/" . $bsid . " " . $bm["song_name"] . "] is now ranked!";
+			$msg = "[https://storage.ripple.moe/d/" . $bsid . " " . $bm["song_name"] . "] is now ranked!";
 			$to = "#announce";
 			$requesturl = $URL["bancho"] . "/api/v1/fokabotMessage?k=" . urlencode($ScoresConfig["api_key"]) . "&to=" . urlencode($to) . "&msg=" . urlencode($msg);
 			$resp = getJsonCurl($requesturl);
@@ -1485,7 +1635,7 @@ class D {
 				// Solve
 				$GLOBALS["db"]->execute("UPDATE reports SET assigned = -1 WHERE id = ? LIMIT 1", [$_GET["id"]]);
 			}
-			redirect("index.php?p=127&id=" . $_GET["id"] . "&s=Solved status changed!");
+			redirect("index.php?p=127&id=" . $_GET["id"] . "&s=Solved status changed!!");
 		} catch (Exception $e) {
 			redirect("index.php?p=127&id=" . $_GET["id"] . "&e=" . $e->getMessage());
 		}
@@ -1510,220 +1660,9 @@ class D {
 				// Useless
 				$GLOBALS["db"]->execute("UPDATE reports SET assigned = -2 WHERE id = ? LIMIT 1", [$_GET["id"]]);
 			}
-			redirect("index.php?p=127&id=" . $_GET["id"] . "&s=Useful status changed!");
+			redirect("index.php?p=127&id=" . $_GET["id"] . "&s=Useful status changed!!");
 		} catch (Exception $e) {
 			redirect("index.php?p=127&id=" . $_GET["id"] . "&e=" . $e->getMessage());
-		}
-	}
-
-	public static function RestoreScoresSearchUser() {
-		try {
-			if (!isset($_POST["username"]) || empty($_POST["username"])) {
-				throw new Exception("Missing username");
-			}
-			$userID = getUserID($_POST["username"]);
-			if (!$userID) {
-				throw new Exception("No such user");
-			}
-			redirect("index.php?p=134&id=" . $userID);
-		} catch (Exception $e) {
-			redirect("index.php?p=134&e=" . $e->getMessage());
-		}
-	}
-
-	public static function RestoreScores() {
-		try {
-			if (!isset($_POST["userid"]) || empty($_POST["userid"]) || !isset($_POST["gm"]) || empty($_POST["gm"])) {
-				throw new Exception("Missing required parameters");
-			}
-
-			$q = "SELECT * FROM scores_removed WHERE userid = ?";
-			$qp = [$_POST["userid"]];
-			if ($_POST["gm"] > -1 && $_POST["gm"] <= 3) {
-				$q .= " AND play_mode = ?";
-				array_push($qp, $_POST["gm"]);
-			}
-			if (isset($_POST["startdate"]) && !empty($_POST["startdate"])) {
-				$h = isset($_POST["starttime"]) && !empty($_POST["starttime"]) ? $_POST["starttime"] : "00:00";
-				$startts = getTimestampFromStr("$_POST[startdate] $h");
-				$q .= " AND time >= ?";
-				array_push($qp, $startts);
-			}
-			if (isset($_POST["enddate"])  && !empty($_POST["enddate"])) {
-				$h = isset($_POST["endtime"]) && !empty($_POST["endtime"]) ? $_POST["endtime"] : "00:00";
-				$endts = getTimestampFromStr("$_POST[enddate] $h");
-				$q .= " AND time <= ?";
-				array_push($qp, $endts);
-			}
-
-			$scoresToRecover = $GLOBALS["db"]->fetchAll($q, $qp);
-			foreach ($scoresToRecover as $lostScore) {
-				$restore = false;
-				if ($lostScore["completed"] == 3) {
-					// Restore completed 3 scores only if they havent been replaced by better scores
-					$betterScore = $GLOBALS["db"]->fetch("SELECT id FROM scores WHERE userid = ? AND play_mode = ? AND beatmap_md5 = ? AND completed = 3 AND pp > ? LIMIT 1", [
-						$lostScore["userid"],
-						$lostScore["play_mode"],
-						$lostScore["beatmap_md5"],
-						$lostScore["pp"]
-					]);
-					$restore = !$betterScore;
-				} else {
-					// Restore all completed < 3 scores
-					$restore = true;
-				}
-				if (!$restore) {
-					echo "$lostScore[id] has a better score, not restoring<br>";
-					continue;
-				}
-				$GLOBALS["db"]->execute("INSERT INTO scores SELECT * FROM scores_removed WHERE id = ? LIMIT 1", [$lostScore["id"]]);
-				$GLOBALS["db"]->execute("DELETE FROM scores_removed WHERE id = ? LIMIT 1", [$lostScore["id"]]);
-				echo "Restored $lostScore[id]<br>";
-			}
-
-			// redirect(index.php?p=134&id=" . $userID);
-		} catch (Exception $e) {
-			redirect("index.php?p=134&e=" . $e->getMessage());
-		}
-	}
-
-	public static function UploadMainMenuIcon() {
-		try {
-			if (!isset($_POST["name"]) || empty($_POST["name"]) || !isset($_POST["url"]) || empty($_POST["url"])) {
-				throw new Exception("Missing required parameter(s).");
-			}
-			if (!isset($_FILES["file"]) || empty($_FILES["file"]) || $_FILES["file"]["error"] != 0) {
-				throw new Exception("Nothing uploaded");
-			}
-			$path = "main_menu_icons";
-			$verifyImg = getimagesize($_FILES["file"]["tmp_name"]);
-			if ($verifyImg["mime"] !== "image/png") {
-				throw new Exception("Only png images are allowed");
-			}
-			$fileName = randomFileName($path, ".png");
-			$finalFilePath = $path . "/" . $fileName . ".png";
-			if (!move_uploaded_file($_FILES["file"]["tmp_name"], $finalFilePath)) {
-				throw new Exception("File upload failed. Check server's permissions.");
-			}
-			$defaultCount = current($GLOBALS["db"]->fetch("SELECT COUNT(*) FROM main_menu_icons WHERE is_default = 1"));
-			$GLOBALS["db"]->execute("INSERT INTO main_menu_icons (name, file_id, url, is_default) VALUES (?, ?, ?, ?)", [$_POST["name"], $fileName, $_POST["url"], (int)($defaultCount == 0)]);
-			$msg = "Main menu icon uploaded successfully";
-			$msg .= $defaultCount == 0 ? " and set as default image." : "!";
-			redirect("index.php?p=111&s=" . $msg);
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function DeleteMainMenuIcon() {
-		try {
-			if (!isset($_GET["id"]) || empty($_GET["id"])) {
-				throw new Exception("Missing required parameter");
-			}
-			$icon = $GLOBALS["db"]->fetch("SELECT file_id FROM main_menu_icons WHERE id = ? LIMIT 1", [$_GET["id"]]);
-			if (!$icon) {
-				throw new Exception("The icon doesn't exist.");
-			}
-			unlink("main_menu_icons/" . $icon["file_id"] . ".png");
-			$GLOBALS["db"]->execute("DELETE FROM main_menu_icons WHERE id = ? LIMIT 1", [$_GET["id"]]);
-			updateMainMenuIconBancho();
-			redirect("index.php?p=111&s=Main menu icon deleted successfully!");
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function SetDefaultMainMenuIcon() {
-		try {
-			if (!isset($_GET["id"]) || empty($_GET["id"])) {
-				throw new Exception("Missing required parameter");
-			}
-			$GLOBALS["db"]->execute("UPDATE main_menu_icons SET is_default = IF(id = ?, 1, 0)", [$_GET["id"]]);
-			redirect("index.php?p=111&s=Default main menu icon set successfully!");
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function SetMainMenuIcon() {
-		try {
-			if (!isset($_GET["id"]) || empty($_GET["id"])) {
-				throw new Exception("Missing required parameter");
-			}
-			$GLOBALS["db"]->execute("UPDATE main_menu_icons SET is_current = IF(id = ?, 1, 0)", [$_GET["id"]]);
-			updateMainMenuIconBancho();
-			redirect("index.php?p=111&s=Main menu icon set successfully!");
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function TestMainMenuIcon() {
-		try {
-			if (!isset($_GET["id"]) || empty($_GET["id"])) {
-				throw new Exception("Missing required parameter");
-			}
-			$devs = $GLOBALS["db"]->fetchAll("SELECT id FROM users WHERE privileges & " . Privileges::AdminManageServers . " > 0");
-			foreach ($devs as $row) {
-				testMainMenuIconBancho($row["id"], $_GET["id"]);
-			}
-			redirect("index.php?p=111&s=Main menu icon sent to all online developers!");
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function RestoreMainMenuIcon() {
-		try {
-			$GLOBALS["db"]->execute("UPDATE main_menu_icons SET is_current = IF((SELECT id FROM (SELECT * FROM main_menu_icons) AS x WHERE x.is_default = 1 AND x.id = main_menu_icons.id LIMIT 1), 1, 0)", [$_GET["id"]]);
-			updateMainMenuIconBancho();
-			redirect("index.php?p=111&s=Main menu icon restored successfully!");
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function RemoveMainMenuIcon() {
-		try {
-			$GLOBALS["db"]->execute("UPDATE main_menu_icons SET is_current = 0", [$_GET["id"]]);
-			updateMainMenuIconBancho();
-			redirect("index.php?p=111&s=Main menu icon removed successfully!");
-		} catch (Exception $e) {
-			redirect("index.php?p=111&e=" . $e->getMessage());
-		}
-	}
-
-	public static function BulkBan() {
-		try {
-			if (!isset($_POST["uid"]) || empty($_POST["uid"])) {
-				throw new Exception("No user ids provided.");
-			}
-			$result = "";
-			$errors = "";
-			foreach ($_POST["uid"] as $uid) {
-				$uid = (int)$uid;
-				$user = $GLOBALS["db"]->fetch("SELECT privileges, username FROM users WHERE id = ? LIMIT 1", [$uid]);
-				if (!$user) {
-					$errors .= "$uid doesn't exist | ";
-					continue;
-				}
-				if (($user["privileges"] & Privileges::AdminManageUsers) > 0) {
-					$errors .= "No privileges to ban $uid. | ";
-					continue;
-				}
-				$GLOBALS["db"]->execute("UPDATE users SET privileges = (privileges & ~3) WHERE id = ? LIMIT 1", [$uid]);
-				if (isset($_POST["notes"]) && !empty($_POST["notes"])) {
-					appendNotes($uid, $_POST["notes"]);
-				}
-				$result .= "$uid OK! | ";
-				$result = trim($result, " | ");
-				$errors = trim($errors, " | ");
-				updateBanBancho($uid);
-				rapLog(sprintf("has banned user %s", $user["username"]));
-			}
-			redirect("index.php?p=102&e=" . $errors . "&s=" . $result);
-		} catch (Exception $e) {
-			redirect("index.php?p=102&e=" . $e->getMessage());
 		}
 	}
 }

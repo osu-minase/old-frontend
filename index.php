@@ -115,10 +115,7 @@ if ($p == 27) {
     <link href="./css/bootstrap-colorpicker.min.css" rel="stylesheet">
 
     <!-- SCEditor CSS -->
-	<link rel="stylesheet" href="./css/themes/default.css" type="text/css" media="all" />
-	
-    <!-- Datepicker CSS -->
-    <link href="./css/bootstrap-datepicker3.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./css/themes/default.css" type="text/css" media="all" />
 
     <!-- Animate CSS -->
     <link rel="stylesheet" href="./css/animate.css">
@@ -217,22 +214,17 @@ if ($p < 100) {
     <script src="./js/bootstrap-colorpicker.min.js"></script>
 
     <!-- SCEditor JavaScript -->
-	<script src="./js/jquery.sceditor.bbcode.js"></script>
-	
-	<!-- Datepicker -->
-	<script src="./js/bootstrap-datepicker.min.js"></script>
+    <script src="./js/jquery.sceditor.bbcode.js"></script>
 
     <!-- Custom JavaScript for every page -->
-	<script type="text/javascript">
-		// Escape function
-		function escapeHtml(unsafe) {
-			return unsafe
-				.replace(/&/g, "&amp;")
-				.replace(/</g, "&lt;")
-				.replace(/>/g, "&gt;")
-				.replace(/"/g, "&quot;")
-				.replace(/'/g, "&#039;");
-		}
+    <script type="text/javascript">
+        // Initialize stuff
+        $('.icp-auto').iconpicker();
+        $('.colorpicker').colorpicker({format:"hex"});
+        $('.sceditor').sceditor({plugins: "bbcode", resizeEnabled: false, toolbarExclude: "font,table,code,quote,ltr,rtl" , style: "css/jquery.sceditor.default.css"});
+        $(".spoiler-trigger").click(function() {$(this).parent().next().collapse('toggle');});
+		$("[data-toggle=popover]").popover();
+		//$(".slider").slider()
 
         // Are you sure window
         function sure(redr, pre)
@@ -246,17 +238,14 @@ if ($p < 100) {
             if (r == true) window.location.replace(redr);
         }
 
-		function reallysuredialog()
+        function reallysure(redr)
         {
             var r = confirm("This action cannot be undone. Are you sure you want to continue?");
             if (r == true)
                 r = confirm("Are you REALLY sure?");
-                return r == true;
+                if (r == true)
+                    window.location.replace(redr);
         }
-
-        function reallysure(redr) {
-			reallysuredialog() && window.location.replace(redr)
-		}
 
 		function play(id) {
 			var audio = $('#audio_'+id)[0];
@@ -275,32 +264,7 @@ if ($p < 100) {
 				audio.currentTime = 0;
 				$('#icon_'+id)[0].className = "fa fa-play";
 			}
-		}
-		
-		function updateResolution () {
-			document.isMobile = window.matchMedia('(max-width: 768px)').matches
-		}
-
-		$(document).ready(function () {
-			// Initialize stuff
-			$('.icp-auto').iconpicker();
-			$('.colorpicker').colorpicker({format:"hex"});
-			$('.sceditor').sceditor({plugins: "bbcode", resizeEnabled: false, toolbarExclude: "font,table,code,quote,ltr,rtl" , style: "css/jquery.sceditor.default.css"});
-			$(".spoiler-trigger").click(function() {$(this).parent().next().collapse('toggle');});
-			$("[data-toggle=popover]").popover();
-			$(window).resize(function () {
-				updateResolution()
-			})
-			updateResolution()
-		})
-
-		$(".getcountry").click(function() {
-			var i = $(this);
-			$.get("https://ip.zxq.co/" + $(this).data("ip") + "/country", function(data) {
-				data = (data === "" ? "dunno" : data);
-				i.text("(" + data + ")");
-			});
-		});
+        }
     </script>
 
 
@@ -308,8 +272,6 @@ if ($p < 100) {
     <?php
 switch ($p) {
 		// Admin cp - edit user
-
-	case 100: echo '<script src="./js/pipoli.js"></script>'; break;
 
 	case 103:
 		echo '
@@ -358,34 +320,12 @@ switch ($p) {
 						}
 						updatePrivileges();
 					}
-					function scheduleSaveReminderFadeOut () {
-						setTimeout(function () {
-							if (document.isMobile) {
-								return
-							}
-							$(".bottom-fixed.enabled>.alert").fadeOut(1000);
-						}, 1500)
-					}
-					$(".unpin").click(function () {
-						$(".bottom-fixed").toggleClass("enabled")
-						$(".bottom-padded").toggleClass("enabled")
-						$(".bottom-fixed>.alert").fadeIn(250)
-						var pinned = $(".bottom-fixed").hasClass("enabled")
-						if (pinned) {
-							scheduleSaveReminderFadeOut()
-						}
-						window.localStorage.setItem("editUserPinned", pinned.toString())
-					})
-					$(document).ready(function () {
-						if (window.localStorage.getItem("editUserPinned") === null) {
-							window.localStorage.setItem("editUserPinned", "true")
-						}
-						var pinned = window.localStorage.getItem("editUserPinned") === "true"
-						if (pinned) {
-							$(".bottom-fixed").addClass("enabled");
-							$(".bottom-padded").addClass("enabled");
-							scheduleSaveReminderFadeOut()
-						}
+					$(".getcountry").click(function() {
+						var i = $(this);
+						$.get("https://ip.zxq.co/" + $(this).data("ip") + "/country", function(data) {
+							data = (data === "" ? "dunno" : data);
+							i.text("(" + data + ")");
+						});
 					});
                 </script>
                 ';
@@ -526,7 +466,6 @@ switch ($p) {
 			var bsid='.htmlspecialchars($_GET["bsid"]).';
 			var force='.$force.';
 		</script>
-		<input id="csrf" type="hidden" value="' . csrfToken() . '">
 		<script src="/js/rankbeatmap.js"></script>';
 	break;
 
@@ -540,33 +479,6 @@ switch ($p) {
 				});
 			});
 		</script>';
-	break;
-
-	case 134:
-	case 137:
-		echo "<script>
-		$(document).ready(function() {
-			$('.datepicker').datepicker({
-				orientation: 'bottom',
-				format: 'yyyy-mm-dd',
-				autoclose: true,
-				clearBtn: true
-			})
-		})
-		</script>";
-
-		if ($p == 137) {
-			echo "<script>
-			function toggleDatepickers() {
-				$('.datepicker').prop('disabled', $('#susleakat').val() !== 'dates')
-			}
-
-			$(document).ready(function() {
-				toggleDatepickers();
-				$('#susleakat').change(toggleDatepickers)
-			})
-			</script>";
-		}
 	break;
 }
 

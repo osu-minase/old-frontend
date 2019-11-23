@@ -29,6 +29,8 @@ require_once $df.'/pages/Leaderboard.php';
 require_once $df.'/pages/PasswordFinishRecovery.php';
 require_once $df.'/pages/ServerStatus.php';
 require_once $df.'/pages/UserLookup.php';
+require_once $df.'/pages/2fa.php';
+require_once $df.'/pages/2faSetup.php';
 require_once $df.'/pages/RequestRankedBeatmap.php';
 require_once $df.'/pages/MyAPIApplications.php';
 require_once $df.'/pages/EditApplication.php';
@@ -44,6 +46,7 @@ require_once $df.'/pages/BlockTotp2fa.php';
 require_once $df.'/../secret/fringuellina.php';
 $pages = [
 	new Login(),
+	new TwoFA(),
 	new Beatmaps(),
 	new BlockTotpTwoFa()
 ];
@@ -129,6 +132,8 @@ function setTitle($p) {
 			6 =>   'Edit user settings',
 			7 =>   'Change password',
 			8 =>   'Edit userpage',
+			14 =>  'Documentation files',
+			16 =>  'Read documentation',
 			17 =>  'Changelog',
 			18 =>  'Recover your password',
 			21 =>  'About',
@@ -144,6 +149,8 @@ function setTitle($p) {
 			102 => 'Users',
 			103 => 'Edit user',
 			104 => 'Change identity',
+			106 => 'Documentation Pages',
+			107 => 'Edit documentation page',
 			108 => 'Badges',
 			109 => 'Edit Badge',
 			110 => 'Edit user badges',
@@ -164,13 +171,6 @@ function setTitle($p) {
 			129 => 'View cake',
 			130 => 'Cake recipes',
 			131 => 'View cake recipe',
-			132 => 'View anticheat reports',
-			133 => 'View anticheat report',
-			134 => 'Restore scores',
-			135 => 'Search users by IP',
-			136 => 'Search users by IP - Results',
-			137 => 'Top Scores',
-			138 => 'Top Scores Results',
 		];
 		if (isset($namesRipple[$p])) {
 			return __maketitle('Ripple', $namesRipple[$p]);
@@ -254,6 +254,18 @@ function printPage($p) {
 			case 104:
 				sessionCheckAdmin(Privileges::AdminManageUsers);
 				P::AdminChangeIdentity();
+			break;
+				// Admin panel - Documentation
+
+			case 106:
+				sessionCheckAdmin(Privileges::AdminManageDocs);
+				P::AdminDocumentation();
+			break;
+				// Admin panel - Edit Documentation file
+
+			case 107:
+				sessionCheckAdmin(Privileges::AdminManageDocs);
+				P::AdminEditDocumentation();
 			break;
 				// Admin panel - Badges
 
@@ -339,7 +351,7 @@ function printPage($p) {
 				sessionCheckAdmin(Privileges::AdminManageBeatmaps);
 				P::AdminRankBeatmapManually();
 			break;
-
+			
 			// Admin panel - Reports
 			case 126:
 				sessionCheckAdmin(Privileges::AdminManageReports);
@@ -375,48 +387,6 @@ function printPage($p) {
 			case 131:
 				sessionCheckAdmin(Privileges::AdminCaker);
 				Fringuellina::PrintEditCake();
-			break;
-
-			// Admin panel - View anticheat reports
-			case 132:
-				sessionCheckAdmin(Privileges::AdminManageUsers);
-				P::AdminViewAnticheatReports();
-			break;
-
-			// Admin panel - View anticheat report
-			case 133:
-				sessionCheckAdmin(Privileges::AdminManageUsers);
-				P::AdminViewAnticheatReport();
-			break;
-
-			// Admin panel - Restore scores
-			case 134:
-				sessionCheckAdmin(Privileges::AdminWipeUsers);
-				P::AdminRestoreScores();
-			break;
-
-			// Admin panel - Search users by IP
-			case 135:
-				sessionCheckAdmin(Privileges::AdminManageUsers);
-				P::AdminSearchUserByIP();
-			break;
-
-			// Admin panel - Search users by IP - Results
-			case 136:
-				sessionCheckAdmin(Privileges::AdminManageUsers);
-				P::AdminSearchUserByIPResults();
-			break;
-
-			// Admin panel - Top scores
-			case 137:
-				sessionCheckAdmin(Privileges::AdminViewTopScores);
-				P::AdminTopScores();
-			break;
-
-			// Admin panel - Top scores results
-			case 138:
-				sessionCheckAdmin(Privileges::AdminViewTopScores);
-				P::AdminTopScoresResults();
 			break;
 
 			// 404 page
@@ -469,11 +439,6 @@ function printNavbar() {
 							<span class="icon-bar"></span>
 							<span class="icon-bar"></span>
 						</button>';
-						if (isset($_GET['p']) && $_GET['p'] >= 100) {
-						echo '<button type="button" class="navbar-toggle with-icon" data-toggle="collapse" data-target="#sidebar-wrapper">
-								<span class="glyphicon glyphicon-briefcase">
-							</button>';
-						}
 						global $isBday;
 						echo $isBday ? '<a class="navbar-brand" href="index.php"><i class="fa fa-birthday-cake"></i><img src="images/logos/text.png" style="display: inline; padding-left: 10px;"></a>' : '<a class="navbar-brand" href="index.php"><img src="images/logos/text.png"></a>';
 					echo '</div>
@@ -488,12 +453,12 @@ function printNavbar() {
 	if (checkLoggedIn()) {
 		// Just an easter egg that you'll probably never notice, unless you do it on purpose.
 		if (hasPrivilege(Privileges::AdminAccessRAP)) {
-			echo '<li><a href="index.php?p=100"><i class="fa fa-cog"></i>	<b>Admin Panel</b></a></li>';
+			echo '<li><a href="index.php?p=102"><i class="fa fa-cog"></i>	<b>Admin Panel</b></a></li>';
 		}
 	}
 	// Right elements
 	echo '</ul><ul class="nav navbar-nav navbar-right">';
-	echo '<li><input type="text" class="form-control" name="query" id="query" placeholder="Search users..."></li>';
+	echo '<li><input type="text" style="width:200px; margin-top: 10px;" class="form-control" name="query" id="query" placeholder="Search users..."></li>';
 	// Logged in right elements
 	if (checkLoggedIn()) {
 		global $URL;
@@ -501,7 +466,7 @@ function printNavbar() {
 					<a data-toggle="dropdown"><img src="'.URL::Avatar().'/'.getUserID($_SESSION['username']).'" height="22" width="22" />	<b>'.$_SESSION['username'].'</b><span class="caret"></span></a>
 					<ul class="dropdown-menu">
 						<li class="dropdown-submenu"><a href="index.php?u='.getUserID($_SESSION['username']).'"><i class="fa fa-user"></i> My profile</a></li>
-						<li class="dropdown-submenu"><a href="submit.php?action=logout&csrf='.csrfToken().'"><i class="fa fa-sign-out"></i>	Logout</a></li>
+						<li class="dropdown-submenu"><a href="submit.php?action=logout"><i class="fa fa-sign-out"></i>	Logout</a></li>
 					</ul>
 				</li>';
 	}
@@ -513,7 +478,7 @@ function printNavbar() {
  * Prints the admin left sidebar
 */
 function printAdminSidebar() {
-	echo '<div id="sidebar-wrapper" class="collapse" aria-expanded="false">
+	echo '<div id="sidebar-wrapper">
 					<ul class="sidebar-nav">
 						<li class="sidebar-brand">
 							<a href="#"><b>R</b>ipple <b>A</b>dmin <b>P</b>anel</a>
@@ -524,14 +489,8 @@ function printAdminSidebar() {
 							echo '<li><a href="index.php?p=101"><i class="fa fa-cog"></i>	System settings</a></li>
 							<li><a href="index.php?p=111"><i class="fa fa-server"></i>	Bancho settings</a></li>';
 
-						if (hasPrivilege(Privileges::AdminManageUsers)) {
+						if (hasPrivilege(Privileges::AdminManageUsers))
 							echo '<li><a href="index.php?p=102"><i class="fa fa-user"></i>	Users</a></li>';
-							echo '<li><a href="index.php?p=132"><i class="fa fa-fire"></i>	Anticheat reports</a></li>';
-						}
-
-						if (hasPrivilege(Privileges::AdminWipeUsers)) {
-							echo '<li><a href="index.php?p=134"><i class="fa fa-undo"></i>	Restore scores</a></li>';
-						}
 
 						if (hasPrivilege(Privileges::AdminCaker))
 							echo Fringuellina::RAPButton();
@@ -548,16 +507,17 @@ function printAdminSidebar() {
 						if (hasPrivilege(Privileges::AdminManageBadges))
 							echo '<li><a href="index.php?p=108"><i class="fa fa-certificate"></i>	Badges</a></li>';
 
+						if (hasPrivilege(Privileges::AdminManageDocs))
+							echo '<li><a href="index.php?p=106"><i class="fa fa-question-circle"></i>	Documentation</a></li>';
+
 						if (hasPrivilege(Privileges::AdminManageBeatmaps)) {
 							echo '<li><a href="index.php?p=117"><i class="fa fa-music"></i>	Rank requests</a></li>';
 							echo '<li><a href="index.php?p=125"><i class="fa fa-level-up"></i>	Rank beatmap manually</a></li>';
 						}
 
-						if (hasPrivilege(Privileges::AdminViewTopScores))
-							echo '<li><a href="index.php?p=137"><i class="fa fa-fighter-jet"></i>	Top scores</a></li>';
-
 						if (hasPrivilege(Privileges::AdminViewRAPLogs))
 							echo '<li class="animated infinite pulse"><a href="index.php?p=116"><i class="fa fa-calendar"></i>	Admin log&nbsp;&nbsp;&nbsp;<div class="label label-primary">Free botnets</div></a></li>';
+
 						echo "</ul>
 				</div>";
 }
@@ -571,14 +531,14 @@ function printAdminSidebar() {
  * @bt (string) big text, usually the value
  * @st (string) small text, usually the name of that stat
 */
-function printAdminPanel($c, $i, $bt, $st, $tt="") {
+function printAdminPanel($c, $i, $bt, $st) {
 	echo '<div class="col-lg-3 col-md-6">
 			<div class="panel panel-'.$c.'">
 			<div class="panel-heading">
 			<div class="row">
 			<div class="col-xs-3"><i class="'.$i.'"></i></div>
 			<div class="col-xs-9 text-right">
-				<div title="'.$tt.'" class="huge">'.$bt.'</div>
+				<div class="huge">'.$bt.'</div>
 				<div>'.$st.'</div>
 			</div></div></div></div></div>';
 }
@@ -862,6 +822,63 @@ function checkRegistrationsEnabled() {
 		return false;
 	} else {
 		return true;
+	}
+}
+/****************************************
+ **	  DOCUMENTATION FUNCTIONS	   **
+ ****************************************/
+/*
+ * listDocumentationFiles
+ * Retrieves all teh files in the folder ../docs/,
+ * parses their filenames and then returns them in alphabetical order.
+*/
+function listDocumentationFiles() {
+	// Maintenance alerts
+	P::MaintenanceStuff();
+	// Global alert
+	P::GlobalAlert();
+	echo '<div id="narrow-content"><h1><i class="fa fa-question-circle"></i> Documentation</h1>';
+	$e = "<ul class='text-left'>\n";
+	$data = $GLOBALS['db']->fetchAll("SELECT id, doc_name FROM docs WHERE public = '1'");
+	if (count($data) != 0) {
+		foreach ($data as $value) {
+			$e .= "<li><a href='index.php?p=16&id=".$value['id']."'>".$value['doc_name']."</a></li>\n";
+		}
+	} else {
+		$e .= 'It looks like there are no documentation files! Perhaps try again later?';
+	}
+	$e .= '</ul>';
+	echo $e;
+	echo '</div>';
+}
+/*
+ * getDocPageAndParse
+ * Gets a page on the documentation.
+ *
+ * @param (string) ($docid) The document ID.
+*/
+function getDocPageAndParse($docid) {
+	// Maintenance check
+	P::MaintenanceStuff();
+	// Global alert
+	P::GlobalAlert();
+	try {
+		if ($docid === null) {
+			throw new Exception();
+		}
+		$doc = $GLOBALS['db']->fetch('SELECT doc_contents, public FROM docs WHERE id = ? AND is_rule = "0";', $docid);
+		if ($doc['public'] == '0' && !sessionCheckAdmin(-1, 1)) {
+			return;
+		}
+		if ($doc == false) {
+			throw new Exception();
+		}
+		require_once 'parsedown.php';
+		$p = new Parsedown();
+		echo "<div class='text-left'>".$p->text($doc['doc_contents']).'</div>';
+	}
+	catch(Exception $e) {
+		echo '<br>That documentation file could not be found!';
 	}
 }
 // ******** GET USER ID/USERNAME FUNCTIONS *********
@@ -1636,6 +1653,28 @@ function readableRank($rank) {
 	}
 }
 
+function check2FA($userID) {
+	// Check if 2fa is enabled
+	if (!is2FAEnabled($userID))
+		return false;
+
+	// New ip?
+	$ip = getIp();
+	if ($GLOBALS["db"]->fetch("SELECT * FROM ip_user WHERE userid = ? AND ip = ?", [$userID, $ip]))
+		return false;
+
+	// Check if we already have a pending 2FA token from that IP
+	if ($GLOBALS["db"]->fetch("SELECT * FROM 2fa WHERE userid = ? AND ip = ? AND expire > ?", [$userID, $ip, time()]))
+		return false;
+
+	// No 2FA tokens from that IP, add a new one
+	$GLOBALS["db"]->execute("INSERT INTO 2fa (id, userid, token, ip, expire, sent) VALUES (NULL, ?, ?, ?, ?, 0)", [$userID, strtoupper(randomString(8)), $ip, time()+3600]);
+
+	// Send 2FA telegram message
+	getJsonCurl("http://127.0.0.1:8888/update");
+	return true;
+}
+
 function redirect2FA() {
 	// Check 2FA only if we are logged in
 	if (!checkLoggedIn())
@@ -1646,44 +1685,87 @@ function redirect2FA() {
 	if ($type == 0) {
 		// No 2FA, don't redirect
 		return;
-	}
-	// TOTP
-	$ip = getIp();
-	if ($GLOBALS["db"]->fetch("SELECT * FROM ip_user WHERE userid = ? AND ip = ?", [$_SESSION["userid"], $ip])) {
-		// trusted ip
-		return;
-	} else {
-		// new ip
-		// force 2fa alert page
-		// Don't redirect to 2FA page if we are on submit.php with resend2FA, 2fa or logout action
-		if ($_SERVER['PHP_SELF'] == "/submit.php" && @$_GET["action"] == "logout")
+	} else if ($type == 2) {
+		// TOTP
+		$ip = getIp();
+		if ($GLOBALS["db"]->fetch("SELECT * FROM ip_user WHERE userid = ? AND ip = ?", [$_SESSION["userid"], $ip])) {
+			// trusted ip
 			return;
-		if (!isset($_GET["p"]) || $_GET["p"] != 42)
-			redirect("index.php?p=42");
+		} else {
+			// new ip
+			// force 2fa alert page
+			// Don't redirect to 2FA page if we are on submit.php with resend2FA, 2fa or logout action
+			if ($_SERVER['PHP_SELF'] == "/submit.php" && @$_GET["action"] == "logout")
+				return;
+			if (!isset($_GET["p"]) || $_GET["p"] != 42)
+				redirect("index.php?p=42");
+		}
+	} else {
+		// Telegram 2FA, run logic
+		// Generate 2FA token if needed
+		check2FA($_SESSION["userid"]);
+
+		// Don't redirect to 2FA page if we are on submit.php with resend2FA, 2fa or logout action
+		if (($_SERVER['PHP_SELF'] == "/submit.php") &&
+			(@$_GET["action"] == "resend2FACode" || @$_POST["action"] == "2fa" || @$_GET["action"] == "logout"))
+			return;
+
+		// Don't redirect to 2FA page if we are already in 2FA page
+		if (isset($_GET["p"]) && $_GET["p"] == 29)
+			return;
+
+		// Redirect to 2FA page
+		if ($GLOBALS['db']->fetch("SELECT * FROM 2fa WHERE userid = ? AND ip = ?", [$_SESSION["userid"], getIp()])) {
+			redirect("index.php?p=29");
+		}
 	}
 }
 
 
 
 
-/*
+/* 
    RIP Documentation and comments from now on.
    Those functions are the last ones that we've added to old-frontend
    Because new frontend is coming soonTM, so I don't want to waste time writing comments and docs.
    You'll also find 20% more memes in these functions.
 
    ...and fuck php
-   -- Nyo
-
+   -- Nyo 
+   
    I'd just like to interject for a moment. You do not just 'fuck' PHP, you 'fuck' PHP with a CACTUS!
    -- Howl
 */
 
 
 
+
+function cleanExpiredConfirmationToken() {
+	$GLOBALS["db"]->execute("DELETE FROM 2fa_confirmation WHERE expire < ?", [time()]);
+}
+
+function getConfirmationToken($userID) {
+	// Get current token
+	$token = $GLOBALS["db"]->fetch("SELECT token FROM 2fa_confirmation WHERE userid = ? LIMIT 1", [$userID]);
+	// Generate a new token if not found
+	if (!$token) {
+		$GLOBALS["db"]->execute("INSERT INTO 2fa_confirmation (id, userid, token, expire) VALUES (NULL, ?, ?, ?)", [$userID, randomString(32), time()+3600]);
+		return getConfirmationToken($userID);
+	} else {
+		return $token["token"];
+	}
+}
+
 function get2FAType($userID) {
-	$result = $GLOBALS["db"]->fetch("SELECT IFNULL((SELECT 2 FROM 2fa_totp WHERE userid = ? AND enabled = 1 LIMIT 1), 0) AS x", [$userID]);
+	$result = $GLOBALS["db"]->fetch("SELECT IFNULL((SELECT 1 FROM 2fa_telegram WHERE userid = ? LIMIT 1), 0) | IFNULL((SELECT 2 FROM 2fa_totp WHERE userid = ? AND enabled = 1 LIMIT 1), 0) AS x", [$userID, $userID]);
 	return $result["x"];
+}
+
+function is2FAEnabled($userID, $force = false) {
+	if (session_status() != PHP_SESSION_NONE && !$force && isset($_SESSION["2fa"]))
+		return $_SESSION["2fa"];
+	$result = $GLOBALS["db"]->fetch("SELECT * FROM 2fa_telegram WHERE userid = ? LIMIT 1", [$userID]);
+	return $result > 0;
 }
 
 function getUserPrivileges($userID) {
@@ -1727,7 +1809,7 @@ function multiaccCheckIP($ip) {
 	/*$multiUsername = $GLOBALS["db"]->fetch("SELECT username FROM users WHERE id = ?", [$multiUserID]);
 
 	if ($multiUsername) {
-		@Schiavo::CM("User **" . current($multiUsername) . "** (https://ripple.moe/?u=$multiUserID) tried to create a multiaccount (**" . $_POST['u'] . "**) from IP **" . $ip . "**");
+		Schiavo::CM("User **" . current($multiUsername) . "** (https://ripple.moe/?u=$multiUserID) tried to create a multiaccount (**" . $_POST['u'] . "**) from IP **" . $ip . "**");
 	}
 	$GLOBALS["db"]->execute("UPDATE users SET notes=CONCAT(COALESCE(notes, ''),'\n-- Multiacc attempt (".$_POST["u"].") from IP ".$ip."') WHERE id = ?", [$multiUserID]); */
 }
@@ -1795,10 +1877,6 @@ function getDonorPrice($months) {
 	return number_format(pow($months * 30 * 0.2, 0.70), 2, ".", "");
 }
 
-function getDonorMonths($price) {
-	return round(pow($price, (1 / 0.70)) / 30 / 0.2);
-}
-
 function unsetCookie($name) {
 	unset($_COOKIE[$name]);
 	setcookie($name, "", time()-3600);
@@ -1826,14 +1904,11 @@ function stripSuccessError($url) {
 	return $parts["path"] . "?" .  http_build_query($query);
 }
 
-function appendNotes($userID, $notes, $addNl=true, $addTimestamp=true) {
-	$wowo = "";
-	if ($addNl)
-		$wowo .= "\n";
-	if ($addTimestamp)
-		$wowo .= date("[Y-m-d H:i:s] ");
-	$wowo .= $notes;
-	$GLOBALS["db"]->execute("UPDATE users SET notes=CONCAT(COALESCE(notes, ''),?) WHERE id = ? LIMIT 1", [$wowo, $userID]);
+function appendNotes($userID, $notes, $addNl=true) {
+	if ($addNl) {
+		$notes = "\n" . $notes;
+	}
+	$GLOBALS["db"]->execute("UPDATE users SET notes=CONCAT(COALESCE(notes, ''),?) WHERE id = ? LIMIT 1", [$notes, $userID]);
 }
 
 function removeFromLeaderboard($userID) {
@@ -1845,154 +1920,4 @@ function removeFromLeaderboard($userID) {
 			$GLOBALS["redis"]->zrem("ripple:leaderboard:".$value.":".$country, $userID);
 		}
 	}
-}
-
-function generateCsrfToken() {
-	return bin2hex(openssl_random_pseudo_bytes(32));
-}
-
-function csrfToken() {
-	if (!isset($_SESSION['csrf'])) {
-		$_SESSION['csrf'] = generateCsrfToken();
-	}
-	return $_SESSION['csrf'];
-}
-
-function csrfCheck($givenToken=NULL, $regen=true) {
-	if (!isset($_SESSION['csrf'])) {
-		return false;
-	}
-	if ($givenToken === NULL) {
-		if (isset($_POST['csrf'])) {
-			$givenToken = $_POST['csrf'];
-		} else if (isset($_GET['csrf'])) {
-			$givenToken = $_GET['csrf'];
-		} else {
-			return false;
-		}
-	}
-	if (empty($givenToken)) {
-		return false;
-	}
-	$rightToken = $_SESSION['csrf'];
-	if ($regen) {
-		$_SESSION['csrf'] = generateCsrfToken();
-	}
-	return hash_equals($rightToken, $givenToken);
-}
-
-function giveDonor($userID, $months, $add=true) {
-	$userData = $GLOBALS["db"]->fetch("SELECT username, email, donor_expire FROM users WHERE id = ? LIMIT 1", [$userID]);
-	if (!$userData) {
-		throw new Exception("That user doesn't exist");
-	}
-	$isDonor = hasPrivilege(Privileges::UserDonor, $userID);
-	$username = $userData["username"];
-	if (!$isDonor || !$add) {
-		$start = time();
-	} else {
-		$start = $userData["donor_expire"];
-		if ($start < time()) {
-			$start = time();
-		}
-	}
-	$unixExpire = $start+((30*86400)*$months);
-	$monthsExpire = round(($unixExpire-time())/(30*86400));
-	$GLOBALS["db"]->execute("UPDATE users SET privileges = privileges | ".Privileges::UserDonor.", donor_expire = ? WHERE id = ?", [$unixExpire, $userID]);
-
-	$donorBadge = $GLOBALS["db"]->fetch("SELECT id FROM badges WHERE name = 'Donator' OR name = 'Donor' LIMIT 1");
-	if (!$donorBadge) {
-		throw new Exception("There's no Donor badge in the database. Please run bdzr to migrate the database to the latest version.");
-	}
-	$hasAlready = $GLOBALS["db"]->fetch("SELECT id FROM user_badges WHERE user = ? AND badge = ? LIMIT 1", [$userID, $donorBadge["id"]]);
-	if (!$hasAlready) {
-		$GLOBALS["db"]->execute("INSERT INTO user_badges(user, badge) VALUES (?, ?);", [$userID, $donorBadge["id"]]);
-	}
-	// Send email
-	// Feelin' peppy-y
-	if ($months >= 20) $TheMoreYouKnow = "Did you know that your donation accounts for roughly one month of keeping the main server up? That's crazy! Thank you so much!";
-	else if ($months >= 15 && $months < 20) $TheMoreYouKnow = "Normally we would say how much of our expenses a certain donation pays for, but your donation is halfway through paying the domain for 1 year and paying the main server for 1 month. So we don't really know what to say here: your donation pays for about 75% of keeping the server up one month. Thank you so much!";
-	else if ($months >= 10 && $months < 15) $TheMoreYouKnow = "You know what we could do with the amount you donated? We could probably renew the domain for one more year! Although your money is more likely to end up being spent on paying the main server. Thank you so much!";
-	else if ($months >= 4 && $months < 10) $TheMoreYouKnow = "Your donation will help to keep the beatmap mirror we set up for Ripple up for one month! Thanks a lot!";
-	else if ($months >= 1 && $months < 4) $TheMoreYouKnow =  "With your donation, we can afford to keep up the error logging server, which is a little VPS on which we host an error logging service (Sentry). Thanks a lot!";
-	
-	global $MailgunConfig;
-	$mailer = new SimpleMailgun($MailgunConfig);
-	$mailer->Send(
-		'Ripple <noreply@'.$MailgunConfig['domain'].'>', $userData['email'],
-		'Thank you for donating!',
-		sprintf(
-			"Hey %s! Thanks for donating to Ripple. It's thanks to the support of people like you that we can afford keeping the service up. Your donation has been processed, and you should now be able to get the donator role on discord, and have access to all the other perks listed on the \"Support us\" page.<br><br>%s<br><br>Your donor expires in %s months. Until then, have fun!<br>The Ripple Team",
-			$username,
-			$TheMoreYouKnow,
-			$monthsExpire
-		)
-	);
-	return $monthsExpire;
-}
-
-function isJson($string) {
-	json_decode($string);
-	return (json_last_error() == JSON_ERROR_NONE);
-}
-
-function prettyPrintJsonString($s) {
-	return json_encode(json_decode($s), JSON_PRETTY_PRINT);
-}
-
-function getTimestampFromStr($str, $fmt="Y-m-d H:i") {
-	$dateTime = DateTime::createFromFormat($fmt, $str);
-	if ($dateTime === FALSE) {
-		throw new Exception("Invalid timestamp string");
-	}
-	return $dateTime->getTimestamp();
-}
-
-function jsonArrayToHtmlTable($arr) {
-	$str = "<table class='anticheattable'><tbody>";
-	foreach ($arr as $key => $val) {
-			$str .= "<tr>";
-			$str .= "<td>$key</td>";
-			$str .= "<td>";
-			if (is_array($val)) {
-					if (!empty($val)) {
-							$str .= jsonArrayToHtmlTable($val);
-					}
-			} else {
-					$str .= "<strong>".(is_bool($val) ? ($val ? "true" : "false") : $val)."</strong>";
-			}
-			$str .= "</td></tr>";
-	}
-	$str .= "</tbody></table>";
-
-	return $str;
-}
-
-function jsonObjectToHtmlTable($jsonString="") {
-		$arr = json_decode($jsonString, true);
-		$html = "";
-		if ($arr && is_array($arr)) {
-				$html .= jsonArrayToHtmlTable($arr);
-		}
-		return $html;
-}
-
-function randomFileName($path, $suffix) {
-	do {
-			$randomStr = randomString(32);
-			$file = $path . "/" . $randomStr . $suffix;
-			$exists = file_exists($file);
-	} while($exists);
-	echo $file;
-	return $randomStr;
-}
-
-function updateMainMenuIconBancho() {
-	redisConnect();
-	$GLOBALS["redis"]->publish("peppy:reload_settings", "reload");
-}
-
-function testMainMenuIconBancho($userID, $mainMenuIconID) {
-	redisConnect();
-	$GLOBALS["redis"]->publish("peppy:set_main_menu_icon", json_encode(["userID" => $userID, "mainMenuIconID" => $mainMenuIconID]));
 }

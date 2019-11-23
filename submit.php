@@ -32,16 +32,47 @@ try {
 			return;
 		}
 	}
-	if (!csrfCheck()) {
-		throw new Exception("csrf token check not passed");	// I'M. HOW. TO. BASIC!!
-	}
-
 	// What shall we do?
 	switch ($action) {
+		case 'register':
+			D::Register();
+		break;
+		case 'changePassword':
+			D::ChangePassword();
+		break;
 		case 'logout':
 			D::Logout();
 			redirect('index.php');
 		break;
+		case 'u':
+			redirect('../ripple/index.php?u='.$_GET['data'].'&m=0');
+		break;
+		case 'recoverPassword':
+			D::RecoverPassword();
+		break;
+		case 'saveUserSettings':
+			D::saveUserSettings();
+		break;
+		case 'forgetEveryCookie':
+			D::ForgetEveryCookie();
+		break;
+		case 'saveUserpage':
+			D::SaveUserpage();
+		break;
+		case 'changeAvatar':
+			D::ChangeAvatar();
+		break;
+		case 'addRemoveFriend':
+			D::AddRemoveFriend();
+		break;
+		case 'resend2FACode':
+			D::Resend2FACode();
+		break;
+		case 'disable2FA':
+			D::Disable2FA();
+		break;
+		default:
+			throw new Exception('Invalid action value');
 		break;
 			// Admin functions, need sessionCheckAdmin() because can be performed only by admins
 
@@ -53,15 +84,19 @@ try {
 			sessionCheckAdmin(Privileges::AdminManageSettings);
 			D::SaveBanchoSettings();
 		break;
+		case 'runCron':
+			sessionCheckAdmin(Privileges::AdminManageSettings);
+			D::RunCron();
+		break;
 		case 'saveEditUser':
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::SaveEditUser();
 		break;
-		case 'banUnbanUser': // TODO
+		case 'banUnbanUser':
 			sessionCheckAdmin(Privileges::AdminBanUsers);
 			D::BanUnbanUser();
 		break;
-		case 'restrictUnrestrictUser':	// TODO
+		case 'restrictUnrestrictUser':
 			sessionCheckAdmin(Privileges::AdminBanUsers);
 			D::RestrictUnrestrictUser();
 		break;
@@ -77,7 +112,15 @@ try {
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::ChangeIdentity();
 		break;
-		case 'removeBadge':	// TODO
+		case 'saveDocFile':
+			sessionCheckAdmin(Privileges::AdminManageDocs);
+			D::SaveDocFile();
+		break;
+		case 'removeDoc':
+			sessionCheckAdmin(Privileges::AdminManageDocs);
+			D::RemoveDocFile();
+		break;
+		case 'removeBadge':
 			sessionCheckAdmin(Privileges::AdminManageBadges);
 			D::RemoveBadge();
 		break;
@@ -101,7 +144,7 @@ try {
 			sessionCheckAdmin(Privileges::AdminSilenceUsers);
 			D::KickUser();
 		break;
-		case 'resetAvatar':	// TODO
+		case 'resetAvatar':
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::ResetAvatar();
 		break;
@@ -109,11 +152,15 @@ try {
 			sessionCheckAdmin(Privileges::AdminWipeUsers);
 			D::WipeAccount();
 		break;
+		case 'setRulesPage':
+			sessionCheckAdmin(Privileges::AdminManageDocs);
+			D::SetRulesPage();
+		break;
 		/*case 'processRankRequest':
 			sessionCheckAdmin(Privileges::AdminManageBeatmaps);
 			D::ProcessRankRequest();
 		break;*/
-		case 'blacklistRankRequest':	// TODO
+		case 'blacklistRankRequest':
 			sessionCheckAdmin(Privileges::AdminManageBeatmaps);
 			D::BlacklistRankRequest();
 		break;
@@ -125,7 +172,7 @@ try {
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::GiveDonor();
 		break;
-		case 'removeDonor':	// TODO
+		case 'removeDonor':
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::RemoveDonor();
 		break;
@@ -133,11 +180,11 @@ try {
 			sessionCheckAdmin(Privileges::AdminWipeUsers);
 			D::Rollback();
 		break;
-		case 'toggleCustomBadge':	// TODO
+		case 'toggleCustomBadge':
 			sessionCheckAdmin(Privileges::AdminManageUsers);
 			D::ToggleCustomBadge();
 		break;
-		case 'lockUnlockUser':	// TODO
+		case 'lockUnlockUser':
 			sessionCheckAdmin(Privileges::AdminBanUsers);
 			D::LockUnlockUser();
 		break;
@@ -149,27 +196,27 @@ try {
 			sessionCheckAdmin(Privileges::AdminManageBeatmaps);
 			D::RedirectRankBeatmap();
 		break;
-		case 'clearHWID':	// TODO
+		case 'clearHWID':
 			sessionCheckAdmin(Privileges::AdminBanUsers);
 			D::ClearHWIDMatches();
 		break;
-		case 'takeReport':	// TODO?
+		case 'takeReport':
 			sessionCheckAdmin(Privileges::AdminManageReports);
 			D::TakeReport();
 		break;
-		case 'solveUnsolveReport':	// TODO?
+		case 'solveUnsolveReport':
 			sessionCheckAdmin(Privileges::AdminManageReports);
 			D::SolveUnsolveReport();
 		break;
-		case 'uselessUsefulReport':	// TODO?
+		case 'uselessUsefulReport':
 			sessionCheckAdmin(Privileges::AdminManageReports);
 			D::UselessUsefulReport();
 		break;
-		case 'toggleCake':	// TODO
+		case 'toggleCake':
 			sessionCheckAdmin(Privileges::AdminCaker);
 			Fringuellina::ToggleCake();
 		break;
-		case 'removeCake':	// TODO
+		case 'removeCake':
 			sessionCheckAdmin(Privileges::AdminCaker);
 			Fringuellina::RemoveCake();
 		break;
@@ -177,48 +224,6 @@ try {
 			sessionCheckAdmin(Privileges::AdminCaker);
 			Fringuellina::EditCake();
 		break;
-		case 'restoreScoresSearchUser':
-			sessionCheckAdmin(Privileges::AdminWipeUsers);
-			D::RestoreScoresSearchUser();
-		break;
-		case 'restoreScores':
-			sessionCheckAdmin(Privileges::AdminWipeUsers);
-			D::RestoreScores();
-		break;
-		case 'setMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::SetMainMenuIcon();
-		break;
-		case 'setDefaultMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::SetDefaultMainMenuIcon();
-		break;
-		case 'testMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::TestMainMenuIcon();
-		break;
-		case 'restoreMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::RestoreMainMenuIcon();
-		break;
-		case 'deleteMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::DeleteMainMenuIcon();
-		break;
-		case 'uploadMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::UploadMainMenuIcon();
-		break;
-		case 'removeMainMenuIcon':
-			sessionCheckAdmin(Privileges::AdminManageSettings);
-			D::RemoveMainMenuIcon();
-		break;
-		case 'bulkBan':
-			sessionCheckAdmin(Privileges::AdminBanUsers);
-			D::BulkBan();
-		break;
-		default:
-			throw new Exception('Invalid action value');
 	}
 }
 catch(Exception $e) {
